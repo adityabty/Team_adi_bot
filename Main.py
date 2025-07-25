@@ -1,238 +1,54 @@
+from pyrogram import Client, filters
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pytgcalls import PyTgCalls
+from pytgcalls.types.input_stream import InputStream, AudioPiped
+from yt_dlp import YoutubeDL
 import os
-from pyrogram import Client, filters
-from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton
-from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
-from yt_dlp import YoutubeDL
 
-app = Client("vc_music_bot",
-             api_id=int(os.getenv("API_ID")),
-             api_hash=os.getenv("API_HASH"),
-             bot_token=os.getenv("BOT_TOKEN"))
+API_ID = int(os.environ.get("API_ID"))
+API_HASH = os.environ.get("API_HASH")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+
+app = Client("music-bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 vc = PyTgCalls(app)
 
-def download_audio(url):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': 'song.%(ext)s',
-        'postprocessors': [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3','preferredquality': '192'}],
-        'quiet': True,
-    }
-    with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-    return "song.mp3"
+ydl_opts = {"format": "bestaudio"}
 
 @app.on_message(filters.command("start"))
-async def start(_, msg):
-    bn = (await app.get_me()).username
-    await msg.reply_text(f"👋 Hi {msg.from_user.mention}!\nAdd me to a group and use `/play <song>`.\nTry inline: `@{bn}`")
-
-@app.on_message(filters.new_chat_members)
-async def welcome(_, msg):
-    for u in msg.new_chat_members:
-        await msg.reply_text(f"🎉 Welcome {u.mention}!\nUse `/play <song name>` to play music in VC!")
+async def start(client, message: Message):
+    await message.reply_text(
+        f"👋 Hello {message.from_user.mention}!\n\n🎵 Welcome to VC Music Bot.\n\n🧑‍💻 Developer: @adidevloper",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🎧 Join VC", callback_data="join")],
+            [InlineKeyboardButton("🧑‍💻 Founder", url="https://t.me/adidevloper")]
+        ])
+    )
 
 @app.on_message(filters.command("play") & filters.group)
-async def play(_, msg):
-    if len(msg.command) < 2:
-        return await msg.reply_text("❗ Song name or URL missing.")
-    query = " ".join(msg.command[1:])
-    m = await msg.reply_text(f"🔍 Searching: `{query}`")
-    with YoutubeDL({'quiet': True, 'skip_download': True, 'format': 'bestaudio'}) as ydl:
-        try:
-            info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
-        except Exception as e:
-            return await m.edit(f"❌ Error: {e}")
-    await m.edit(f"🎧 Playing: **{info['title']}**")
-    download_audio(info['webpage_url'])
-    await vc.join_group_call(msg.chat.id, AudioPiped("song.mp3"))
-    os.remove("song.mp3")
+async def play(_, message: Message):
+    if len(message.command) < 2:
+        return await message.reply("❗ Usage: `/play song name or YouTube URL`")
+    query = " ".join(message.command[1:])
 
-@app.on_inline_query()
-async def inline(client, iq):
-    bn = (await client.get_me()).username
-    results = [
-        InlineQueryResultArticle(
-            title="➕ Add to Group",
-            description="Tap to add bot",
-            input_message_content=InputTextMessageContent("Tap below to add the bot to your group"),
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{bn}?startgroup=true")]])
-        ),
-        InlineQueryResultArticle(
-            title="👑 Founder Info",
-            description="About the creator",
-            input_message_content=InputTextMessageContent("👑 Creator: @your_username")
-        ),
-        InlineQueryResultArticle(
-            title="📜 How to Use",
-            description="Guide for music bot",
-            input_message_content=InputTextMessageContent("1️⃣ Add to group\n2️⃣ Promote admin (mic)\n3️⃣ Use `/play song`\nEnjoy!")
-        ),
-        InlineQueryResultArticle(
-            title="💠 Clone Bot",
-            description="Get your own music bot",
-            input_message_content=InputTextMessageContent("🔗 GitHub: https://github.com/your/repo")
-        ),
-    ]
-    await iq.answer(results, cache_time=1)
-
-vc.start()
-app.run()import os
-from pyrogram import Client, filters
-from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton
-from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
-from yt_dlp import YoutubeDL
-
-app = Client("vc_music_bot",
-             api_id=int(os.getenv("API_ID")),
-             api_hash=os.getenv("API_HASH"),
-             bot_token=os.getenv("BOT_TOKEN"))
-vc = PyTgCalls(app)
-
-def download_audio(url):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': 'song.%(ext)s',
-        'postprocessors': [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3','preferredquality': '192'}],
-        'quiet': True,
-    }
+    msg = await message.reply("🔍 Searching...")
     with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-    return "song.mp3"
+        info = ydl.extract_info(query, download=False)
+        url = info["url"]
+        title = info.get("title")
 
-@app.on_message(filters.command("start"))
-async def start(_, msg):
-    bn = (await app.get_me()).username
-    await msg.reply_text(f"👋 Hi {msg.from_user.mention}!\nAdd me to a group and use `/play <song>`.\nTry inline: `@{bn}`")
+    chat_id = message.chat.id
+    await vc.join_group_call(
+        chat_id,
+        InputStream(
+            AudioPiped(url)
+        )
+    )
+    await msg.edit(f"🎶 Now Playing: `{title}`")
 
-@app.on_message(filters.new_chat_members)
-async def welcome(_, msg):
-    for u in msg.new_chat_members:
-        await msg.reply_text(f"🎉 Welcome {u.mention}!\nUse `/play <song name>` to play music in VC!")
-
-@app.on_message(filters.command("play") & filters.group)
-async def play(_, msg):
-    if len(msg.command) < 2:
-        return await msg.reply_text("❗ Song name or URL missing.")
-    query = " ".join(msg.command[1:])
-    m = await msg.reply_text(f"🔍 Searching: `{query}`")
-    with YoutubeDL({'quiet': True, 'skip_download': True, 'format': 'bestaudio'}) as ydl:
-        try:
-            info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
-        except Exception as e:
-            return await m.edit(f"❌ Error: {e}")
-    await m.edit(f"🎧 Playing: **{info['title']}**")
-    download_audio(info['webpage_url'])
-    await vc.join_group_call(msg.chat.id, AudioPiped("song.mp3"))
-    os.remove("song.mp3")
-
-@app.on_inline_query()
-async def inline(client, iq):
-    bn = (await client.get_me()).username
-    results = [
-        InlineQueryResultArticle(
-            title="➕ Add to Group",
-            description="Tap to add bot",
-            input_message_content=InputTextMessageContent("Tap below to add the bot to your group"),
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{bn}?startgroup=true")]])
-        ),
-        InlineQueryResultArticle(
-            title="👑 Founder Info",
-            description="About the creator",
-            input_message_content=InputTextMessageContent("👑 Creator: @your_username")
-        ),
-        InlineQueryResultArticle(
-            title="📜 How to Use",
-            description="Guide for music bot",
-            input_message_content=InputTextMessageContent("1️⃣ Add to group\n2️⃣ Promote admin (mic)\n3️⃣ Use `/play song`\nEnjoy!")
-        ),
-        InlineQueryResultArticle(
-            title="💠 Clone Bot",
-            description="Get your own music bot",
-            input_message_content=InputTextMessageContent("🔗 GitHub: https://github.com/your/repo")
-        ),
-    ]
-    await iq.answer(results, cache_time=1)
-
-vc.start()
-app.run()import os
-from pyrogram import Client, filters
-from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardMarkup, InlineKeyboardButton
-from pytgcalls import PyTgCalls
-from pytgcalls.types.input_stream import AudioPiped
-from yt_dlp import YoutubeDL
-
-app = Client("vc_music_bot",
-             api_id=int(os.getenv("API_ID")),
-             api_hash=os.getenv("API_HASH"),
-             bot_token=os.getenv("BOT_TOKEN"))
-vc = PyTgCalls(app)
-
-def download_audio(url):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': 'song.%(ext)s',
-        'postprocessors': [{'key': 'FFmpegExtractAudio','preferredcodec': 'mp3','preferredquality': '192'}],
-        'quiet': True,
-    }
-    with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-    return "song.mp3"
-
-@app.on_message(filters.command("start"))
-async def start(_, msg):
-    bn = (await app.get_me()).username
-    await msg.reply_text(f"👋 Hi {msg.from_user.mention}!\nAdd me to a group and use `/play <song>`.\nTry inline: `@{bn}`")
-
-@app.on_message(filters.new_chat_members)
-async def welcome(_, msg):
-    for u in msg.new_chat_members:
-        await msg.reply_text(f"🎉 Welcome {u.mention}!\nUse `/play <song name>` to play music in VC!")
-
-@app.on_message(filters.command("play") & filters.group)
-async def play(_, msg):
-    if len(msg.command) < 2:
-        return await msg.reply_text("❗ Song name or URL missing.")
-    query = " ".join(msg.command[1:])
-    m = await msg.reply_text(f"🔍 Searching: `{query}`")
-    with YoutubeDL({'quiet': True, 'skip_download': True, 'format': 'bestaudio'}) as ydl:
-        try:
-            info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
-        except Exception as e:
-            return await m.edit(f"❌ Error: {e}")
-    await m.edit(f"🎧 Playing: **{info['title']}**")
-    download_audio(info['webpage_url'])
-    await vc.join_group_call(msg.chat.id, AudioPiped("song.mp3"))
-    os.remove("song.mp3")
-
-@app.on_inline_query()
-async def inline(client, iq):
-    bn = (await client.get_me()).username
-    results = [
-        InlineQueryResultArticle(
-            title="➕ Add to Group",
-            description="Tap to add bot",
-            input_message_content=InputTextMessageContent("Tap below to add the bot to your group"),
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Add to Group", url=f"https://t.me/{bn}?startgroup=true")]])
-        ),
-        InlineQueryResultArticle(
-            title="👑 Founder Info",
-            description="About the creator",
-            input_message_content=InputTextMessageContent("👑 Creator: @your_username")
-        ),
-        InlineQueryResultArticle(
-            title="📜 How to Use",
-            description="Guide for music bot",
-            input_message_content=InputTextMessageContent("1️⃣ Add to group\n2️⃣ Promote admin (mic)\n3️⃣ Use `/play song`\nEnjoy!")
-        ),
-        InlineQueryResultArticle(
-            title="💠 Clone Bot",
-            description="Get your own music bot",
-            input_message_content=InputTextMessageContent("🔗 GitHub: https://github.com/your/repo")
-        ),
-    ]
-    await iq.answer(results, cache_time=1)
+@app.on_message(filters.command("stop") & filters.group)
+async def stop(_, message: Message):
+    await vc.leave_group_call(message.chat.id)
+    await message.reply("⏹️ Stopped VC stream.")
 
 vc.start()
 app.run()
